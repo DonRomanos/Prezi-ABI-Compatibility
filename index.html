@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Template</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="user-scalable=no,initial-scale=1,maximum-scale=1,minimum-scale=1,width=device-width"
+    />
+    <link rel="stylesheet" type="text/css" href="./css/quasar.min.css" />
+    <link rel="stylesheet" type="text/css" href="./css/pure-min.css" />
+    <link rel="stylesheet" type="text/css" href="./css/spaces.css" />
+    <link rel="stylesheet" type="text/css" href="./css/typo.css" />
+    <link rel="stylesheet" type="text/css" href="./css/devices.min.css" />
+    <link rel="stylesheet" type="text/css" href="./css/gh-fork-ribbon.css" />
+    <link rel="stylesheet" type="text/css" href="./css/nord-dark.css" />
+    <link rel="stylesheet" type="text/css" href="./css/nord-light.css" />
+    <link rel="stylesheet" type="text/css" href="./css/font-nord.css" />
+    <link rel="stylesheet" type="text/css" href="./css/bg-nord.css" />
+    <link rel="stylesheet" type="text/css" href="./css/font-open-color.css" />
+    <link rel="stylesheet" type="text/css" href="./css/bg-open-color.css" />
+    <link rel="stylesheet" type="text/css" href="./css/material-icons.css" />
+    <link rel="stylesheet" type="text/css" href="./css/abs-layout.css" />
+    <link rel="stylesheet" type="text/css" href="./css/border-layout.css" />
+    <link rel="stylesheet" type="text/css" href="./css/text-rect.css" />
+    <link rel="stylesheet" type="text/css" href="./css/text-circle.css" />
+    <link rel="stylesheet" type="text/css" href="./css/card.css" />
+    <link rel="stylesheet" type="text/css" href="./css/lines.css" />
+    <link rel="stylesheet" type="text/css" href="./css/filters.css" />
+    <link rel="stylesheet" type="text/css" href="./fonts/remixicon.css" />
+    <link rel="stylesheet" type="text/css" href="./css/style.css" />
+  </head>
+  <body>
+    <textarea id="source">
+layout: true
+class: typo, typo-selection
+
+---
+
+count: false
+class: middle, pure_code
+
+```cpp
+void MobilePiServer::dataBufferHandler(shared_ptr<X::DataBuffer> db)
+{
+  Network::Data::Header header;
+  payloadSize     = db->getSizeInBytes();
+  // ... some code
+
+  // just use uint8_t to get the void*
+  auto map = db->mapReadOnly<const uint8_t>();
+  if(!map.isValid())
+  {
+      X_ERROR("Failed to acces db memory");
+  }
+
+  // some more code ...
+
+  m_Server->sendImage(header, map.get(), payloadSize); // simplified
+}
+
+```
+---
+
+count: false
+class: middle, pure_code
+
+```cpp
+void MobilePiServer::dataBufferHandler(shared_ptr<X::DataBuffer> db)
+{
+  Network::Data::Header header;
+  payloadSize     = db->getSizeInBytes();
+  // ... some code
+
+  // just use uint8_t to get the void*
+  auto map = db->mapReadOnly<const uint8_t>();
+  if(!map.isValid())
+  {
+      X_ERROR("Failed to acces db memory");
+*     return;
+  }
+
+  // some more code ...
+
+  m_Server->sendImage(header, map.get(), payloadSize); // simplified
+}
+```
+---
+
+count: true
+class: middle, pure_code
+
+```cpp
+TEST_CASE("Local image", "[AcquisitionMobilePi]")
+{
+    auto server = createServer();
+    auto client = createClient();
+
+    X::Acquisition::Network::Buffer buffer;
+    // put some data into buffer ...
+    
+    int sendCnt = 0;
+    for(int i = 0; i < 100; i++)
+    {
+        bool sendSuccess = server->sendImage(buffer,...)
+        REQUIRE(sendSuccess);
+        ++sendCnt;
+    }
+
+    REQUIRE(sendCnt == 100)
+}
+```
+
+---
+class: nord-dark, center, middle
+
+# Writing good Tests is hard
+
+--
+<small>.letter-spacing-20[and takes practice...]</small>
+
+---
+class: center
+
+# TDD to the Rescue
+
+.center[![](./images/red-green-refactor.png)]
+
+---
+
+class: nord-dark, center, middle
+
+# Thank you for your attention
+
+<small>.letter-spacing-20[Any Questions?]</small>
+
+---
+
+class: center, middle
+
+Martin Fowler: 
+
+"Refactoring (noun): a change made to the internal structure of software to make it easier to understand and cheaper to modify without changing its observable behavior."
+
+---
+# The true Power of TDD
+
+It forces you to think about your Requirements
+
+--
+
+It forces you to design your code for testability
+
+--
+
+Proper tests are the best documentation
+
+--
+
+It takes away your fear and gives you trust
+
+---
+
+# An example from our Codebase
+
+```cpp
+struct SimilarPerson
+{
+    std::string name;
+    float similarityScore          = 0.0f;
+    float similarityScoreThreshold = 1.0f;
+    bool isIdentified              = false;
+};
+
+std::shared_ptr<const SimilarPerson> FaceUnlock::identifyAndPad(image...)
+```
+--
+What is the name when the person in the image is unknown? 
+
+--
+
+What is the name when there is no person in the image?
+
+---
+
+# What if we had a test like this?
+
+```cpp
+SECTION("Should not identify anything without a person")
+{
+  auto result = toTest->identifyAndPad(imageNothing, ...);
+
+  CHECK(result.similarityScore < 0.0f);
+  CHECK(result.name.empty());
+}
+
+SECTION("Should not identify the wrong person")
+{
+  auto result = toTest->identifyAndPad(imageWrongPerson, ...);
+
+  CHECK(result.similarityScore < 0.1f 
+     && result.similarityScore > 0.0f);
+  CHECK(result.name == "unknown");
+}
+```
+
+---
+
+# What if we had written the test first?
+
+--
+
+```cpp
+enum class FailureReason
+{
+  NoFailure,
+  NoFaceDetected,
+  ...
+}
+
+struct IdentificationResult
+{
+  std::optional<std::string> name;
+  FailureReason reason;
+}
+
+*IdentificationResult FaceUnlock::identifyAndPad(image...)
+
+```
+
+---
+
+# Lets start from the beginning
+
+We want to add a reflection like Functionality to query Parameters of an algorithm at runtime and make them adjustable in a UI.
+
+--
+
+* Parameters can be grouped
+* We need the following basic types: bool, int, double, string and arrays of those
+* Parameters and Parameter Groups can be nested
+* You can Iterate over Parameters and Parameter Groups
+* Parameters can be loaded from and written as Json
+
+--
+
+Right thats what the X-Framework does... Lets do it better
+
+---
+
+# We write a Test
+
+```cpp
+
+SCENARIO("Using a Parameter from a Json string in Code")
+{
+  GIVEN("A boolean Parameter")
+  {
+    ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
+    WHEN("The value of the parameter is true in json")
+    {
+      THEN("The value of the Parameter should be true in Code")
+      {
+        REQUIRE(parameters.thisIsMyName == true);
+      }
+    }
+  }
+}
+```
+---
+
+# After a first Review
+
+```cpp
+SCENARIO("Using a Parameter from a Json string in Code")
+{
+  GIVEN("A boolean Parameter")
+  {
+    ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
+    WHEN("The value of the parameter is true in json")
+    {
+      THEN("The value of the Parameter should be true in Code")
+      {
+*       REQUIRE(parameters["thisIsMyName"] == true);
+      }
+    }
+  }
+}
+```
+---
+# First step lets make it compile and Fail
+
+```cpp
+class ParameterGroup
+{
+public:
+  bool operator [](std::string_view key) const {return false;}
+}
+
+ParameterGroup loadJson(std::string_view json)
+{
+  return ParameterGroup{};
+}
+```
+--
+[Live on Compiler Explorer](https://godbolt.org/z/nPozce)
+
+---
+
+# Now lets make it pass
+
+How can we do this in the easiest possible way?
+
+--
+```cpp
+class ParameterGroup
+{
+public:
+*  bool operator [](std::string_view key) const {return true;}
+}
+```
+--
+
+Now our test is green and we have a good indication that our test is actually working the way it should and we can start to refactor
+
+---
+
+# Refactoring Step #1
+```cpp
+class ParameterGroup
+{
+public:
+   bool operator [](std::string_view key) const {return values[key];}
+private:
+   std::map<std::string, bool> values;
+}
+```
+--
+Oh no we did never actually specify what should happen when the Parameter is not available...
+---
+# Lets add another Test 
+
+```cpp
+GIVEN("A boolean Parameter")
+{
+  ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
+  WHEN("The value of the parameter is true in json")
+  {
+    //...
+  }
+  WHEN("We ask for a parameter name that does not exist")
+  {
+    THEN("Expect a runtime exception")
+    {
+      CHECK_THROWS(parameters["NonexistingName"]);
+    }
+  ...
+```
+---
+# Refactoring Step #2
+```cpp
+class ParameterGroup
+{
+public:
+   bool operator [](std::string_view key) const 
+   {
+     if( values.find(key) == values.end())
+     {
+       throw std::runtime_error("Trying to access a parameter that does not exist");
+     }
+     return values[key];
+   }
+private:
+   std::map<std::string, bool> values;
+}
+```
+---
+# Refactoring Step #3
+```cpp
+class ParameterGroup
+{
+  ParameterGroup(const std::vector<Parameter>& parameters)
+  {
+    for(const auto& parameter : parameters)
+    {
+      values[parameter.name] = parameter.value;
+      ...
+
+ParameterGroup loadJson(std::string_view json)
+{
+  std::vector<Parameter> resultOfParsing = parseJson(json);
+  return ParameterGroup{resultOfParsing};
+}
+```
+--
+[Example on Godbolt](https://godbolt.org/z/srhGGe)
+
+---
+# Refactoring Step #4
+
+Now we have done the basics for a boolean parameter, lets add some other type, for example double or string
+
+--
+
+**As usual the difficult part is left as an exercise for you!**
+
+*Good Luck!*
+
+
+---
+class: nord-dark, center, middle
+
+# Now its your turn to practice
+
+---
+# Get to Work!
+
+Use TDD in your favourite Language (I recommend Python) to create a Testing Framework which you use to test itself *#Testception*. 
+
+It should be able to do the following:
+
+* Invokes a test method
+* Invokes setup first
+* Invokes tearDown last
+* Invokes tearDown even if the test fails
+
+--
+
+If you have any Questions or Suggestions just ask! I recommend doing this in groups of two or more people.
+
+---
+class: middle
+
+# Some Personal Recommendations
+
+Use the tests for design reviews, discussions and documentation, they use the public interface of a function / class 
+
+--
+
+Test for important behavior, e.g. exceptions, wrong input,... not only the happy path
+
+--
+
+Use good naming, e.g. "Should return nullptr result when no face is in the image"
+
+--
+
+If you have good tests, you (almost) never have to write tutorials or examples
+
+--
+
+Test the right thing on the right Level, Module-, Unit-, Integration-, Benchmark-, Performance-Tests look differently and have different purposes
+
+---
+class: center, middle
+
+#Kent Beck: "Test Driven Development: By Example"
+</textarea>
+
+    <script src="js/remark.min.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/quasar.umd.min.js"></script>
+    <script src="js/mermaid.min.js"></script>
+    <script id="MathJax-script" async src="js/tex-mml-chtml.js"></script>
+    <script>
+      // 预处理：去掉每行开头的空格，否则超过2层锁紧的类会导致解析出BUG
+      var targetTextArea = document.getElementById("source");
+      var targetText = targetTextArea.innerHTML.replace(
+        /```[^`]+```/gm,
+        (match, index, input) => {
+          return match.replace(/[ ]/gm, "\u3000");
+        }
+      );
+      var lines = targetText.split("\n");
+
+      targetTextArea.innerHTML = lines
+        .map((line) => line.replace(/^(?![ ]+[\-|0-9])[ ]+/, ""))
+        .map((line) => line.replace(/\u3000/g, " "))
+        .join("\n");
+
+      var slideshow = remark.create({
+        ratio: "4:3", // window ratio
+        // arta, ascetic, dark, default, far, github, googlecode, idea,
+        // ir-black, magula, monokai, rainbow, solarized-dark, solarized-light,
+        // sunburst, tomorrow, tomorrow-night-blue, tomorrow-night-bright,
+        // tomorrow-night, tomorrow-night-eighties, vs, zenburn.
+        highlightStyle: "github",
+        highlightLines: true,
+        countIncrementalSlides: false, // whether the incremental content count as one page
+        //slideNumberFormat: "", // If this parameter is set to "", the page number is not displayed
+        navigation: {
+          scroll: false, // Page turning with mouse wheel is allowed
+          touch: true, // Is it allowed to scroll back and forth by clicking on the left or right side of the screen
+          click: false, // Allow the mouse to click on the left or right side of the screen to turn back and forth
+        },
+      });
+
+      // 初始化 VUE
+      for (var el of document.querySelectorAll(".vue")) {
+        new Vue({
+          el: el,
+        });
+      }
+
+      // 初始化可点击预览的卡片
+      var preview_win_cards = document.querySelectorAll(".preview-win");
+      for (var card of preview_win_cards) {
+        ((clickedCard) => {
+          clickedCard.addEventListener("click", (e) => {
+            var img = clickedCard.querySelector("img");
+            if (img) {
+              window.open(img.src);
+            }
+          });
+        })(card);
+      }
+
+      // 背景色变化兼容 F11 全屏
+      function isFullScreen() {
+        return (
+          window.fullScreen ||
+          (window.innerWidth == screen.width &&
+            window.innerHeight == screen.height)
+        );
+      }
+
+      window.addEventListener("resize", () => {
+        if (isFullScreen()) {
+          document.body.style["background-color"] = "#000";
+        } else {
+          document.body.style["background-color"] = "#d7d8d2";
+        }
+      });
+
+      // 初始化 mermaid
+      mermaid.mermaidAPI.initialize({
+        startOnLoad: false,
+        theme: "forest",
+        themeCSS:
+          ".tick>text { font-size:26px; }  .taskTextOutsideRight,.taskTextOutsideLeft { font-size:20px; } .titleText {font-size:30px;} .sectionTitle {font-size:20px;}",
+        gantt: {
+          fontSize: 26,
+          barHeight: 30,
+          useMaxWidth: false,
+        },
+      });
+
+      var mermaidCmps = document.querySelectorAll(".mermaid");
+      for (var i = 0; i < mermaidCmps.length; i++) {
+        var mermaidCmp = mermaidCmps[i];
+        var insertSvg = function (svgCode, bindFunctions) {
+          mermaidCmp.innerHTML = svgCode;
+        };
+
+        var graphDefinition = "";
+        let pCmps = mermaidCmp.querySelectorAll("pre");
+        for (var pCmp of pCmps) {
+          graphDefinition += pCmp.textContent.replace(/\\n/g, "<br/>");
+        }
+
+        var graph = mermaid.mermaidAPI.render(
+          "graphDiv" + i,
+          graphDefinition,
+          insertSvg
+        );
+      }
+
+      // LaTeX
+      MathJax = {
+        loader: {
+          load: ["input/tex-base", "[tex]/newcommand", "output/chtml"],
+        },
+        tex: {
+          inlineMath: [
+            ["$", "$"],
+            ["\\(", "\\)"],
+          ],
+        },
+        options: {
+          skipHtmlTags: [
+            "script",
+            "noscript",
+            "style",
+            "textarea",
+            "pre",
+            "code",
+            "annotation",
+            "annotation-xml",
+          ],
+          ignoreHtmlClass: "tex2jax_ignore",
+        },
+      };
+    </script>
+  </body>
+</html>
