@@ -4,6 +4,11 @@
 /dist
 /tmp
 /out-tsc
+/code/out
+/code/build
+/code/.vscode
+/code/.vs
+
 # Only exists if Bazel was run
 /bazel-out
 

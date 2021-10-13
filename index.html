@@ -40,24 +40,20 @@ class: typo, typo-selection
 count: false
 class: middle, pure_code
 
+Motivation
+What is what
+what you cannot and cannot do
+
+https://community.kde.org/Policies/Binary_Compatibility_Issues_With_C%2B%2B
+
+
+our problem with that --> Dependencies, quote from the boost mailing list
+
+Mitigation
+inline namespaces
+Community of practice
+
 ```cpp
-void MobilePiServer::dataBufferHandler(shared_ptr<X::DataBuffer> db)
-{
-  Network::Data::Header header;
-  payloadSize     = db->getSizeInBytes();
-  // ... some code
-
-  // just use uint8_t to get the void*
-  auto map = db->mapReadOnly<const uint8_t>();
-  if(!map.isValid())
-  {
-      X_ERROR("Failed to acces db memory");
-  }
-
-  // some more code ...
-
-  m_Server->sendImage(header, map.get(), payloadSize); // simplified
-}
 
 ```
 ---
@@ -65,25 +61,9 @@ void MobilePiServer::dataBufferHandler(shared_ptr<X::DataBuffer> db)
 count: false
 class: middle, pure_code
 
+What is what
+
 ```cpp
-void MobilePiServer::dataBufferHandler(shared_ptr<X::DataBuffer> db)
-{
-  Network::Data::Header header;
-  payloadSize     = db->getSizeInBytes();
-  // ... some code
-
-  // just use uint8_t to get the void*
-  auto map = db->mapReadOnly<const uint8_t>();
-  if(!map.isValid())
-  {
-      X_ERROR("Failed to acces db memory");
-*     return;
-  }
-
-  // some more code ...
-
-  m_Server->sendImage(header, map.get(), payloadSize); // simplified
-}
 ```
 ---
 
