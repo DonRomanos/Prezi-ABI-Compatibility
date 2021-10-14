@@ -12,7 +12,7 @@ target_compile_features(libone PRIVATE cxx_std_11)
 include(GenerateExportHeader)
 generate_export_header(libone)
 
-target_compile_definitions(libone PRIVATE _ITERATOR_DEBUG_LEVEL=0)
+#target_compile_definitions(libone PRIVATE _ITERATOR_DEBUG_LEVEL=0)
 
 #-------------------------------------------------#
 

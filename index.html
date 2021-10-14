@@ -36,405 +36,127 @@ layout: true
 class: typo, typo-selection
 
 ---
-
-count: false
-class: middle, pure_code
-
-Motivation
-What is what
-what you cannot and cannot do
-
-https://community.kde.org/Policies/Binary_Compatibility_Issues_With_C%2B%2B
-
-
-our problem with that --> Dependencies, quote from the boost mailing list
-
-Mitigation
-inline namespaces
-Community of practice
-
-```cpp
-
-```
----
-
-count: false
-class: middle, pure_code
-
-What is what
-
-```cpp
-```
----
-
-count: true
-class: middle, pure_code
-
-```cpp
-TEST_CASE("Local image", "[AcquisitionMobilePi]")
-{
-    auto server = createServer();
-    auto client = createClient();
-
-    X::Acquisition::Network::Buffer buffer;
-    // put some data into buffer ...
-    
-    int sendCnt = 0;
-    for(int i = 0; i < 100; i++)
-    {
-        bool sendSuccess = server->sendImage(buffer,...)
-        REQUIRE(sendSuccess);
-        ++sendCnt;
-    }
-
-    REQUIRE(sendCnt == 100)
-}
-```
-
----
 class: nord-dark, center, middle
 
-# Writing good Tests is hard
+# API/Source Compatibility
+
+<small>.letter-spacing-20[The client can recompile his codebase with a new version of your library and does not have to adapt his code.]</small>
+
+---
+
+# What you can do
+
+You can always add
 
 --
-<small>.letter-spacing-20[and takes practice...]</small>
+
+You can reorder functions, enums,...
+
+--
+
+You cannot change the signature of a function except for adding default arguments
+
+--
+
+You cannot remove anything publicly available
 
 ---
-class: center
+class: nord-dark, center, middle
 
-# TDD to the Rescue
+# ABI Compatibility
 
-.center[![](./images/red-green-refactor.png)]
+<small>.letter-spacing-20[The client does not have to recompile, he simply can exchange your shared library]</small>
+
+---
+class: center, middle
+
+# What you can do
+
+Anything that does not change name mangling or class layouts
+
+---
+
+# What you can not do
+
+* Remove anything exported
+* Change calling conventions
+* Anything that changes the size of a public class
+* Add new or reorder existing virtual functions
+* Add overloads to non overloaded functions
+* Change visibility of any existing functions/members
+* Inline existing functions
+* Change compiler flags that affect any of the above
+* Link together different standards or liraries of different compilers/configurations
+* ...
+
+---
+class: nord-dark, center, middle
+
+# A good reference
+
+<small>.letter-spacing-20[https://community.kde.org/Policies/Binary_Compatibility_Issues_With_C%2B%2B]</small>
 
 ---
 
 class: nord-dark, center, middle
 
-# Thank you for your attention
+# Binary compability is important and hard to get right
 
-<small>.letter-spacing-20[Any Questions?]</small>
+<small>.letter-spacing-20[In the best case you get linker errors]</small>
+
+<small>.letter-spacing-20[In the worst case memory corruption]</small>
+
+---
+
+# Mitigation for public APIs
+
+
+* Use inline namespaces for versioning
+
+--
+
+* Respect semantic versioning
+
+--
+
+* Hide implementation details, e.g. using pimpl
+
+--
+
+* Use tools: [abi-compliance-checker](https://lvc.github.io/abi-compliance-checker/),
+
+---
+class: nord-dark, center, middle
+
+# "At some Point we will need to acknowledge the problem which results from building boost with one -std and user code with another"
+
+<small>.letter-spacing-20[Peter Dimov - boost mailing list]</small>
+
+---
+class: nord-dark, center, middle
+
+# "The thing that should work and the only thing that can be guaranteed to work is when your whole code base is compiled with the same compiler with the same standard"
+
+<small>.letter-spacing-20[degski - boost mailing list]</small>
 
 ---
 
 class: center, middle
 
-Martin Fowler: 
-
-"Refactoring (noun): a change made to the internal structure of software to make it easier to understand and cheaper to modify without changing its observable behavior."
-
----
-# The true Power of TDD
-
-It forces you to think about your Requirements
+# What can we do regarding our whole source tree?
 
 --
 
-It forces you to design your code for testability
+Our current approach does not scale well
 
 --
 
-Proper tests are the best documentation
+Changing something in the toolchain has to be manually propagated to all our dependencies
 
 --
 
-It takes away your fear and gives you trust
+Community of practice: Up to 5 people from different teams, that learn, think up solutions and get ahead of this problem.
 
----
-
-# An example from our Codebase
-
-```cpp
-struct SimilarPerson
-{
-    std::string name;
-    float similarityScore          = 0.0f;
-    float similarityScoreThreshold = 1.0f;
-    bool isIdentified              = false;
-};
-
-std::shared_ptr<const SimilarPerson> FaceUnlock::identifyAndPad(image...)
-```
---
-What is the name when the person in the image is unknown? 
-
---
-
-What is the name when there is no person in the image?
-
----
-
-# What if we had a test like this?
-
-```cpp
-SECTION("Should not identify anything without a person")
-{
-  auto result = toTest->identifyAndPad(imageNothing, ...);
-
-  CHECK(result.similarityScore < 0.0f);
-  CHECK(result.name.empty());
-}
-
-SECTION("Should not identify the wrong person")
-{
-  auto result = toTest->identifyAndPad(imageWrongPerson, ...);
-
-  CHECK(result.similarityScore < 0.1f 
-     && result.similarityScore > 0.0f);
-  CHECK(result.name == "unknown");
-}
-```
-
----
-
-# What if we had written the test first?
-
---
-
-```cpp
-enum class FailureReason
-{
-  NoFailure,
-  NoFaceDetected,
-  ...
-}
-
-struct IdentificationResult
-{
-  std::optional<std::string> name;
-  FailureReason reason;
-}
-
-*IdentificationResult FaceUnlock::identifyAndPad(image...)
-
-```
-
----
-
-# Lets start from the beginning
-
-We want to add a reflection like Functionality to query Parameters of an algorithm at runtime and make them adjustable in a UI.
-
---
-
-* Parameters can be grouped
-* We need the following basic types: bool, int, double, string and arrays of those
-* Parameters and Parameter Groups can be nested
-* You can Iterate over Parameters and Parameter Groups
-* Parameters can be loaded from and written as Json
-
---
-
-Right thats what the X-Framework does... Lets do it better
-
----
-
-# We write a Test
-
-```cpp
-
-SCENARIO("Using a Parameter from a Json string in Code")
-{
-  GIVEN("A boolean Parameter")
-  {
-    ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
-    WHEN("The value of the parameter is true in json")
-    {
-      THEN("The value of the Parameter should be true in Code")
-      {
-        REQUIRE(parameters.thisIsMyName == true);
-      }
-    }
-  }
-}
-```
----
-
-# After a first Review
-
-```cpp
-SCENARIO("Using a Parameter from a Json string in Code")
-{
-  GIVEN("A boolean Parameter")
-  {
-    ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
-    WHEN("The value of the parameter is true in json")
-    {
-      THEN("The value of the Parameter should be true in Code")
-      {
-*       REQUIRE(parameters["thisIsMyName"] == true);
-      }
-    }
-  }
-}
-```
----
-# First step lets make it compile and Fail
-
-```cpp
-class ParameterGroup
-{
-public:
-  bool operator [](std::string_view key) const {return false;}
-}
-
-ParameterGroup loadJson(std::string_view json)
-{
-  return ParameterGroup{};
-}
-```
---
-[Live on Compiler Explorer](https://godbolt.org/z/nPozce)
-
----
-
-# Now lets make it pass
-
-How can we do this in the easiest possible way?
-
---
-```cpp
-class ParameterGroup
-{
-public:
-*  bool operator [](std::string_view key) const {return true;}
-}
-```
---
-
-Now our test is green and we have a good indication that our test is actually working the way it should and we can start to refactor
-
----
-
-# Refactoring Step #1
-```cpp
-class ParameterGroup
-{
-public:
-   bool operator [](std::string_view key) const {return values[key];}
-private:
-   std::map<std::string, bool> values;
-}
-```
---
-Oh no we did never actually specify what should happen when the Parameter is not available...
----
-# Lets add another Test 
-
-```cpp
-GIVEN("A boolean Parameter")
-{
-  ParameterGroup parameters = loadJson("{"thisIsMyName": true}")
-  WHEN("The value of the parameter is true in json")
-  {
-    //...
-  }
-  WHEN("We ask for a parameter name that does not exist")
-  {
-    THEN("Expect a runtime exception")
-    {
-      CHECK_THROWS(parameters["NonexistingName"]);
-    }
-  ...
-```
----
-# Refactoring Step #2
-```cpp
-class ParameterGroup
-{
-public:
-   bool operator [](std::string_view key) const 
-   {
-     if( values.find(key) == values.end())
-     {
-       throw std::runtime_error("Trying to access a parameter that does not exist");
-     }
-     return values[key];
-   }
-private:
-   std::map<std::string, bool> values;
-}
-```
----
-# Refactoring Step #3
-```cpp
-class ParameterGroup
-{
-  ParameterGroup(const std::vector<Parameter>& parameters)
-  {
-    for(const auto& parameter : parameters)
-    {
-      values[parameter.name] = parameter.value;
-      ...
-
-ParameterGroup loadJson(std::string_view json)
-{
-  std::vector<Parameter> resultOfParsing = parseJson(json);
-  return ParameterGroup{resultOfParsing};
-}
-```
---
-[Example on Godbolt](https://godbolt.org/z/srhGGe)
-
----
-# Refactoring Step #4
-
-Now we have done the basics for a boolean parameter, lets add some other type, for example double or string
-
---
-
-**As usual the difficult part is left as an exercise for you!**
-
-*Good Luck!*
-
-
----
-class: nord-dark, center, middle
-
-# Now its your turn to practice
-
----
-# Get to Work!
-
-Use TDD in your favourite Language (I recommend Python) to create a Testing Framework which you use to test itself *#Testception*. 
-
-It should be able to do the following:
-
-* Invokes a test method
-* Invokes setup first
-* Invokes tearDown last
-* Invokes tearDown even if the test fails
-
---
-
-If you have any Questions or Suggestions just ask! I recommend doing this in groups of two or more people.
-
----
-class: middle
-
-# Some Personal Recommendations
-
-Use the tests for design reviews, discussions and documentation, they use the public interface of a function / class 
-
---
-
-Test for important behavior, e.g. exceptions, wrong input,... not only the happy path
-
---
-
-Use good naming, e.g. "Should return nullptr result when no face is in the image"
-
---
-
-If you have good tests, you (almost) never have to write tutorials or examples
-
---
-
-Test the right thing on the right Level, Module-, Unit-, Integration-, Benchmark-, Performance-Tests look differently and have different purposes
-
----
-class: center, middle
-
-#Kent Beck: "Test Driven Development: By Example"
 </textarea>
 
     <script src="js/remark.min.js"></script>
